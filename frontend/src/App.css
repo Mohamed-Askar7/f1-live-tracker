@@ -1,0 +1,593 @@
+/* ============================================================
+   F1 Live Tracker — App Styles
+   Premium dark racing aesthetic with team-colour accents
+   ============================================================ */
+
+/* ── Layout ─────────────────────────────────────────────────── */
+.app {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+    position: relative;
+}
+
+/* ── Header ─────────────────────────────────────────────────── */
+.next-race-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1.1rem;
+    margin-bottom: 1.1rem;
+    background: linear-gradient(135deg, rgba(225, 6, 0, .14) 0%, rgba(18, 18, 26, .9) 55%, rgba(18, 18, 26, .75) 100%);
+    border: 1px solid rgba(225, 6, 0, .22);
+    border-radius: 14px;
+    backdrop-filter: blur(8px);
+}
+
+.next-race-banner__kicker {
+    font-size: .72rem;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    color: var(--text-muted);
+    font-weight: 700;
+    margin-bottom: .25rem;
+}
+
+.next-race-banner__title {
+    display: flex;
+    align-items: center;
+    gap: .55rem;
+    font-size: 1.15rem;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+}
+
+.next-race-banner__flag {
+    font-size: 1.1rem;
+}
+
+.next-race-banner__right {
+    display: flex;
+    gap: 1.25rem;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+}
+
+.next-race-banner__meta {
+    display: flex;
+    flex-direction: column;
+    gap: .15rem;
+    min-width: 160px;
+}
+
+.next-race-banner__label {
+    font-size: .72rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    font-weight: 700;
+}
+
+.next-race-banner__value {
+    font-size: .9rem;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+.header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.header__logo {
+    display: inline-flex;
+    align-items: center;
+    gap: .6rem;
+    margin-bottom: .6rem;
+}
+
+.header__flag {
+    font-size: 2rem;
+}
+
+.header__title {
+    font-size: 2.2rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    background: linear-gradient(135deg, #fff 30%, var(--accent-red));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.header__session {
+    font-size: .95rem;
+    color: var(--text-secondary);
+    margin-top: .25rem;
+}
+
+
+
+/* ── Status Bar ─────────────────────────────────────────────── */
+.status-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.2rem;
+    padding: .7rem 1rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+}
+
+.status-bar__live {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    font-weight: 600;
+    font-size: .9rem;
+    color: var(--accent-green);
+}
+
+.pulse {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent-green);
+    animation: pulse-glow 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+
+    0%,
+    100% {
+        box-shadow: 0 0 0px var(--accent-green);
+        opacity: 1;
+    }
+
+    50% {
+        box-shadow: 0 0 10px var(--accent-green);
+        opacity: .6;
+    }
+}
+
+.status-bar__timer {
+    font-size: .85rem;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+/* ── Telemetry Panel ────────────────────────────────────────── */
+.telemetry-panel {
+    display: flex;
+    gap: .75rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+
+.telemetry-card {
+    flex: 1 1 220px;
+    min-width: 200px;
+    background: rgba(18, 18, 26, .72);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: .75rem .9rem;
+    backdrop-filter: blur(8px);
+}
+
+.telemetry-card__label {
+    font-size: .72rem;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: var(--text-muted);
+    font-weight: 700;
+    margin-bottom: .3rem;
+}
+
+.telemetry-card__value {
+    display: flex;
+    align-items: baseline;
+    gap: .6rem;
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+}
+
+.telemetry-card__value--tyre {
+    align-items: center;
+}
+
+.telemetry-card__sub {
+    font-size: .82rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+}
+
+.telemetry-tyre-text {
+    font-size: .88rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ── Table ──────────────────────────────────────────────────── */
+.standings-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0 6px;
+}
+
+.standings-table thead th {
+    padding: .6rem 1rem;
+    font-size: .75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--text-muted);
+    text-align: left;
+}
+
+.standings-table thead th:first-child {
+    text-align: center;
+    width: 60px;
+}
+
+.standings-table thead th:nth-child(4) {
+    width: 170px;
+}
+
+/* ── Driver Row ─────────────────────────────────────────────── */
+.driver-row {
+    background: var(--bg-card);
+    transition: background .2s, transform .2s;
+    cursor: default;
+}
+
+.driver-row:hover {
+    background: var(--bg-card-hover);
+    transform: translateX(4px);
+}
+
+.driver-row td {
+    padding: .75rem 1rem;
+    vertical-align: middle;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+}
+
+.driver-row td:first-child {
+    border-left: 1px solid var(--border);
+    border-radius: 10px 0 0 10px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.driver-row td:last-child {
+    border-right: 1px solid var(--border);
+    border-radius: 0 10px 10px 0;
+}
+
+/* Team colour accent bar */
+.driver-row td:first-child::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 15%;
+    bottom: 15%;
+    width: 4px;
+    border-radius: 0 4px 4px 0;
+    background: var(--team-color, var(--accent-red));
+}
+
+/* ── Position Badge ─────────────────────────────────────────── */
+.position-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: .95rem;
+}
+
+.position-badge--p1 {
+    background: linear-gradient(135deg, #ffd700 0%, #b8860b 100%);
+    color: #1a1a28;
+}
+
+.position-badge--p2 {
+    background: linear-gradient(135deg, #c0c0c0 0%, #808080 100%);
+    color: #1a1a28;
+}
+
+.position-badge--p3 {
+    background: linear-gradient(135deg, #cd7f32 0%, #8b5a2b 100%);
+    color: #fff;
+}
+
+.position-badge--default {
+    background: rgba(255, 255, 255, .06);
+    color: var(--text-secondary);
+}
+
+/* ── Driver Info Cell ───────────────────────────────────────── */
+.driver-info {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+}
+
+.driver-info__avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--team-color, var(--border));
+    background: var(--bg-secondary);
+}
+
+.driver-info__name {
+    font-weight: 600;
+    font-size: .95rem;
+}
+
+.driver-info__code {
+    font-size: .75rem;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+/* ── Team Cell ──────────────────────────────────────────────── */
+.team-name {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+}
+
+.team-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+/* ── Lap Cell ───────────────────────────────────────────────── */
+.lap-number {
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+/* ── Tyre Cell ──────────────────────────────────────────────── */
+.tyre-cell {
+    display: inline-flex;
+    align-items: center;
+    gap: .6rem;
+    min-width: 0;
+}
+
+.tyre-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 22px;
+    border-radius: 999px;
+    font-size: .75rem;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    flex: 0 0 auto;
+    border: 1px solid rgba(255, 255, 255, .16);
+}
+
+.tyre-text {
+    font-size: .82rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tyre-soft {
+    background: #d40a00;
+    color: #fff;
+}
+
+.tyre-medium {
+    background: #ffd400;
+    color: #1a1a28;
+    border-color: rgba(0, 0, 0, .22);
+}
+
+.tyre-hard {
+    background: #f2f2f2;
+    color: #1a1a28;
+    border-color: rgba(0, 0, 0, .22);
+}
+
+.tyre-intermediate {
+    background: #00b45a;
+    color: #06140e;
+    border-color: rgba(0, 0, 0, .22);
+}
+
+.tyre-wet {
+    background: #1b6dff;
+    color: #fff;
+}
+
+.tyre-unknown {
+    background: rgba(255, 255, 255, .08);
+    color: var(--text-secondary);
+}
+
+/* ── Loading / Error / Empty States ─────────────────────────── */
+.state-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 50vh;
+    gap: 1rem;
+    text-align: center;
+}
+
+.state-screen__icon {
+    font-size: 3rem;
+    animation: spin 1.2s linear infinite;
+}
+
+.state-screen__icon--static {
+    animation: none;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.state-screen__title {
+    font-size: 1.3rem;
+    font-weight: 700;
+}
+
+.state-screen__sub {
+    font-size: .9rem;
+    color: var(--text-muted);
+    max-width: 360px;
+}
+
+.state-screen__retry {
+    margin-top: .5rem;
+    padding: .6rem 1.6rem;
+    border: none;
+    border-radius: 8px;
+    background: var(--accent-red);
+    color: #fff;
+    font-family: inherit;
+    font-weight: 600;
+    font-size: .9rem;
+    cursor: pointer;
+    transition: opacity .2s;
+}
+
+.state-screen__retry:hover {
+    opacity: .85;
+}
+
+/* ── Footer ─────────────────────────────────────────────────── */
+.footer {
+    text-align: center;
+    padding: 2rem 0 1rem;
+    font-size: .78rem;
+    color: var(--text-muted);
+}
+
+.footer a {
+    color: var(--accent-blue);
+    text-decoration: none;
+}
+
+/* ── Responsive ─────────────────────────────────────────────── */
+@media (max-width: 640px) {
+    .app {
+        padding: 1rem .75rem 3rem;
+    }
+
+    .next-race-banner {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .next-race-banner__right {
+        width: 100%;
+        justify-content: flex-start;
+        gap: .75rem;
+    }
+
+    .next-race-banner__meta {
+        min-width: 0;
+    }
+
+    .header__title {
+        font-size: 1.5rem;
+    }
+
+    .standings-table thead {
+        display: none;
+    }
+
+    .standings-table,
+    .standings-table tbody,
+    .standings-table tr,
+    .standings-table td {
+        display: block;
+        width: 100%;
+    }
+
+    .driver-row {
+        margin-bottom: 8px;
+        border-radius: 12px;
+        padding: .75rem;
+        border: 1px solid var(--border);
+    }
+
+    .driver-row td {
+        border: none !important;
+        border-radius: 0 !important;
+        padding: .3rem 0;
+    }
+
+    .driver-row td:first-child::before {
+        display: none;
+    }
+
+    .driver-row td::before {
+        content: attr(data-label);
+        display: inline-block;
+        width: 80px;
+        font-size: .7rem;
+        text-transform: uppercase;
+        letter-spacing: .06em;
+        color: var(--text-muted);
+        font-weight: 600;
+    }
+
+    .tyre-text {
+        white-space: normal;
+        overflow: visible;
+        text-overflow: unset;
+    }
+
+    .telemetry-tyre-text {
+        white-space: normal;
+        overflow: visible;
+        text-overflow: unset;
+    }
+}
+
+/* ── Row enter animation ────────────────────────────────────── */
+@keyframes row-enter {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.driver-row {
+    animation: row-enter .35s ease-out both;
+}

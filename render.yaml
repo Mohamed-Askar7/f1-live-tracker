@@ -1,0 +1,44 @@
+databases:
+  - name: f1-live-tracker-db
+    databaseName: f1_live_tracker
+    user: f1_live_tracker
+
+services:
+  # -------------------------
+  # Backend API (Express)
+  # -------------------------
+  - type: web
+    name: f1-live-tracker-api
+    runtime: node
+    rootDir: backend
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: FRONTEND_ORIGIN
+        value: https://YOUR-FRONTEND-ONRENDER-URL
+      - key: POLL_INTERVAL
+        value: "5000"
+      - key: OPENF1_BASE_URL
+        value: https://api.openf1.org/v1
+      - key: DATABASE_URL
+        fromDatabase:
+          name: f1-live-tracker-db
+          property: connectionString
+
+  # -------------------------
+  # Frontend (Vite -> static)
+  # -------------------------
+  - type: static_site
+    name: f1-live-tracker-frontend
+    rootDir: frontend
+    plan: free
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_BASE
+        value: https://YOUR-BACKEND-ONRENDER-URL/api
+

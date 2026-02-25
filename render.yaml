@@ -4,9 +4,7 @@ databases:
     user: f1_live_tracker
 
 services:
-  # -------------------------
-  # Backend API (Express)
-  # -------------------------
+  # Backend
   - type: web
     name: f1-live-tracker-api
     runtime: node
@@ -19,7 +17,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: FRONTEND_ORIGIN
-        value: https://YOUR-FRONTEND-ONRENDER-URL
+        value: https://example.com
       - key: POLL_INTERVAL
         value: "5000"
       - key: OPENF1_BASE_URL
@@ -29,16 +27,14 @@ services:
           name: f1-live-tracker-db
           property: connectionString
 
-  # -------------------------
-  # Frontend (Vite -> static)
-  # -------------------------
-  - type: static_site
+  # Frontend (Vite build served as static)
+  - type: web
     name: f1-live-tracker-frontend
+    runtime: node
     rootDir: frontend
     plan: free
     buildCommand: npm install && npm run build
-    staticPublishPath: dist
+    startCommand: npx serve -s dist -l $PORT
     envVars:
       - key: VITE_API_BASE
-        value: https://YOUR-BACKEND-ONRENDER-URL/api
-
+        value: https://example.com/api

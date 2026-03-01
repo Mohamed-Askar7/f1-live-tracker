@@ -16,7 +16,7 @@ const { Pool } = require("pg");
 // ── Config ───────────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
 const OPENF1 = process.env.OPENF1_BASE_URL || "https://api.openf1.org/v1";
-const POLL_INTERVAL = parseInt(process.env.POLL_INTERVAL, 10) || 5000;
+const POLL_INTERVAL = parseInt(process.env.POLL_INTERVAL, 10) || 30000;
 const NODE_ENV = process.env.NODE_ENV || "development";
 
 const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || "http://localhost:5173";
@@ -25,16 +25,16 @@ const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || "http://localhost:5173";
 const pool =
   process.env.DATABASE_URL && process.env.DATABASE_URL.trim().length > 0
     ? new Pool({
-        connectionString: process.env.DATABASE_URL,
-        ssl: { rejectUnauthorized: false },
-      })
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false },
+    })
     : new Pool({
-        user: process.env.DB_USER || "postgres",
-        password: process.env.DB_PASSWORD || "postgres",
-        host: process.env.DB_HOST || "localhost",
-        port: parseInt(process.env.DB_PORT, 10) || 5432,
-        database: process.env.DB_NAME || "f1_live_tracker",
-      });
+      user: process.env.DB_USER || "postgres",
+      password: process.env.DB_PASSWORD || "postgres",
+      host: process.env.DB_HOST || "localhost",
+      port: parseInt(process.env.DB_PORT, 10) || 5432,
+      database: process.env.DB_NAME || "f1_live_tracker",
+    });
 
 // ── Express App ──────────────────────────────────────────────
 const app = express();
@@ -92,6 +92,12 @@ async function initDatabase() {
         lap_duration    NUMERIC(10,3),
         updated_at      TIMESTAMP DEFAULT NOW()
       );
+      CREATE TABLE IF NOT EXISTS intervals (
+        driver_number   INTEGER PRIMARY KEY,
+        gap_to_leader   TEXT,
+        interval        TEXT,
+        updated_at      TIMESTAMP DEFAULT NOW()
+      );
       CREATE TABLE IF NOT EXISTS sessions (
         session_key     INTEGER PRIMARY KEY,
         session_name    VARCHAR(100),
@@ -112,6 +118,17 @@ async function initDatabase() {
         updated_at        TIMESTAMP DEFAULT NOW(),
         PRIMARY KEY (driver_number, stint_number)
       );
+      ALTER TABLE laps
+        ADD COLUMN IF NOT EXISTS best_lap_number INTEGER,
+        ADD COLUMN IF NOT EXISTS best_lap_duration NUMERIC(10,3);
+      CREATE TABLE IF NOT EXISTS championship_drivers (
+        driver_number      INTEGER PRIMARY KEY,
+        points_current     NUMERIC(10,1),
+        points_start       NUMERIC(10,1),
+        position_current   INTEGER,
+        position_start     INTEGER,
+        updated_at         TIMESTAMP DEFAULT NOW()
+      );
     `);
     console.log("✅ Database tables ready");
   } catch (err) {
@@ -124,10 +141,21 @@ async function initDatabase() {
 // ── Helpers: Fetch from OpenF1 ───────────────────────────────
 async function fetchJSON(url) {
   try {
-    const { data } = await axios.get(url, { timeout: 10000 });
+    const { data } = await axios.get(url, { timeout: 100000 });
     return data;
   } catch (err) {
-    console.error(`⚠️  Failed to fetch ${url}:`, err.message);
+    // OpenF1 can rate-limit (429) and some endpoints aren't available for all session types (404).
+    // Avoid flooding the terminal with repeated warnings.
+    const status = err?.response?.status;
+    const key = `${status || "ERR"}:${url}`;
+    const now = Date.now();
+    fetchJSON._lastLogAt = fetchJSON._lastLogAt || new Map();
+    const last = fetchJSON._lastLogAt.get(key) || 0;
+
+    if (status !== 404 && now - last > 120000) {
+      fetchJSON._lastLogAt.set(key, now);
+      console.error(`⚠️  Failed to fetch ${url}:`, err.message);
+    }
     return [];
   }
 }
@@ -143,34 +171,16 @@ function flagFromCountryCode(countryCode) {
   return String.fromCodePoint(OFFSET + first, OFFSET + second);
 }
 
-function simulateTyreFallback({ driverNumber, lapNumber }) {
-  const lap = Math.max(0, Number(lapNumber) || 0);
+function simulateCompoundFallback(driverNumber) {
   const dn = Number(driverNumber) || 0;
-
-  // Deterministic, “reasonable” stint lengths and compound rotation.
-  const stintLength = 14 + (dn % 11); // 14..24
-  const stintNumber = Math.floor(lap / stintLength) + 1;
-  const tyreAge = lap % stintLength;
   const compounds = ["SOFT", "MEDIUM", "HARD"];
-  const compound = compounds[(stintNumber - 1) % compounds.length];
-
-  return { compound, tyreAge, stintNumber };
+  return compounds[dn % compounds.length];
 }
 
-function estimateFuel({ driverNumber, lapNumber }) {
-  const lap = Math.max(0, Number(lapNumber) || 0);
-  const dn = Number(driverNumber) || 0;
-  const startingFuelKg = 110;
-  const basePerLap = 1.55;
-  const driverAdj = ((dn % 7) - 3) * 0.02; // small deterministic variation
-  const fuelPerLap = basePerLap + driverAdj;
-  const remaining = Math.max(0, startingFuelKg - lap * fuelPerLap);
-  const percentage = (remaining / startingFuelKg) * 100;
-  return {
-    fuel_remaining_kg: Math.round(remaining * 10) / 10,
-    fuel_percentage: Math.round(percentage),
-  };
-}
+let lastLapsSyncAt = 0;
+let lastScheduleFetchAt = 0;
+let cachedSchedule = [];
+let latestSessionType = "";
 
 // ── Core: Poll OpenF1 & Store in DB ──────────────────────────
 async function fetchAndStoreData() {
@@ -180,6 +190,7 @@ async function fetchAndStoreData() {
     const sessions = await fetchJSON(`${OPENF1}/sessions?session_key=latest`);
     if (sessions.length > 0) {
       const s = sessions[0];
+      latestSessionType = String(s.session_type || s.session_name || "").toLowerCase();
       await client.query(
         `INSERT INTO sessions (session_key, session_name, session_type, circuit_short_name, country_name, date_start, date_end, updated_at)
          VALUES ($1,$2,$3,$4,$5,$6,$7,NOW())
@@ -223,26 +234,59 @@ async function fetchAndStoreData() {
       );
     }
 
-    // 4) Fetch laps (latest lap per driver)
-    const laps = await fetchJSON(`${OPENF1}/laps?session_key=latest`);
-    const latestLap = new Map();
-    for (const l of laps) {
-      const existing = latestLap.get(l.driver_number);
-      if (!existing || l.lap_number > existing.lap_number) {
-        latestLap.set(l.driver_number, l);
+    // 4) Fetch laps (latest + best), but not every cycle (reduces OpenF1 load)
+    const now = Date.now();
+    if (now - lastLapsSyncAt >= Math.max(POLL_INTERVAL, 120000)) {
+      lastLapsSyncAt = now;
+
+      const laps = await fetchJSON(`${OPENF1}/laps?session_key=latest`);
+      const latestLap = new Map();
+      const bestLap = new Map();
+
+      for (const l of laps) {
+        const existing = latestLap.get(l.driver_number);
+        if (!existing || l.lap_number > existing.lap_number) {
+          latestLap.set(l.driver_number, l);
+        }
+
+        if (l.lap_duration && Number.isFinite(Number(l.lap_duration))) {
+          const lapTime = Number(l.lap_duration);
+          const isPitOut = Boolean(l.is_pit_out_lap);
+          if (lapTime > 0 && !isPitOut) {
+            const currentBest = bestLap.get(l.driver_number);
+            if (!currentBest || lapTime < currentBest.lap_duration) {
+              bestLap.set(l.driver_number, {
+                lap_duration: lapTime,
+                lap_number: l.lap_number,
+              });
+            }
+          }
+        }
+      }
+
+      for (const [driverNum, l] of latestLap) {
+        const best = bestLap.get(driverNum) || null;
+        await client.query(
+          `INSERT INTO laps (driver_number, lap_number, lap_duration, best_lap_number, best_lap_duration, updated_at)
+           VALUES ($1,$2,$3,$4,$5,NOW())
+           ON CONFLICT (driver_number) DO UPDATE SET
+             lap_number=$2,
+             lap_duration=$3,
+             best_lap_number=$4,
+             best_lap_duration=$5,
+             updated_at=NOW()`,
+          [
+            driverNum,
+            l.lap_number,
+            l.lap_duration,
+            best ? best.lap_number : null,
+            best ? best.lap_duration : null,
+          ]
+        );
       }
     }
-    for (const [driverNum, l] of latestLap) {
-      await client.query(
-        `INSERT INTO laps (driver_number, lap_number, lap_duration, updated_at)
-         VALUES ($1,$2,$3,NOW())
-         ON CONFLICT (driver_number) DO UPDATE SET
-           lap_number=$2, lap_duration=$3, updated_at=NOW()`,
-        [driverNum, l.lap_number, l.lap_duration]
-      );
-    }
 
-    // 5) Fetch stints (tyre compound + age data)
+    // 5) Fetch stints (tyre compound)
     const stints = await fetchJSON(`${OPENF1}/stints?session_key=latest`);
     for (const st of stints) {
       await client.query(
@@ -254,10 +298,34 @@ async function fetchAndStoreData() {
       );
     }
 
+    // 6) Fetch drivers championship (live points) — only during race sessions (reduces 404/429)
+    if (latestSessionType.includes("race")) {
+      const championship = await fetchJSON(`${OPENF1}/championship_drivers?session_key=latest`);
+      for (const row of championship) {
+        await client.query(
+          `INSERT INTO championship_drivers (driver_number, points_current, points_start, position_current, position_start, updated_at)
+           VALUES ($1,$2,$3,$4,$5,NOW())
+           ON CONFLICT (driver_number) DO UPDATE SET
+             points_current=$2,
+             points_start=$3,
+             position_current=$4,
+             position_start=$5,
+             updated_at=NOW()`,
+          [
+            row.driver_number,
+            row.points_current,
+            row.points_start,
+            row.position_current,
+            row.position_start,
+          ]
+        );
+      }
+    }
+
     if (NODE_ENV !== "production") {
       const timestamp = new Date().toLocaleTimeString();
       console.log(
-        `🏎️  [${timestamp}] Data synced — ${latestPos.size} drivers, ${latestLap.size} lap records, ${stints.length} stint records`
+        `🏎️  [${timestamp}] Data synced — ${latestPos.size} drivers, ${stints.length} stint records`
       );
     }
   } catch (err) {
@@ -301,17 +369,18 @@ app.get("/api/positions", async (req, res) => {
         d.driver_number,
         d.headshot_url,
         COALESCE(l.lap_number, 0) AS lap_number,
-        l.lap_duration,
+        l.lap_duration AS last_lap_duration,
+        l.best_lap_duration,
+        cd.points_current AS championship_points,
+        cd.position_current AS championship_position,
         s.compound        AS tyre_compound,
-        COALESCE(s.tyre_age_at_start, 0) + COALESCE(l.lap_number, 0) - COALESCE(s.lap_start, 0) AS tyre_age,
-        s.stint_number,
-        s.lap_start       AS stint_lap_start,
         p.updated_at
       FROM positions p
       JOIN drivers d ON d.driver_number = p.driver_number
       LEFT JOIN laps l ON l.driver_number = p.driver_number
+      LEFT JOIN championship_drivers cd ON cd.driver_number = p.driver_number
       LEFT JOIN LATERAL (
-        SELECT st.compound, st.tyre_age_at_start, st.lap_start, st.stint_number
+        SELECT st.compound
         FROM stints st
         WHERE st.driver_number = p.driver_number
         ORDER BY st.stint_number DESC
@@ -321,40 +390,16 @@ app.get("/api/positions", async (req, res) => {
     `);
 
     const enriched = result.rows.map((row) => {
-      const lapNumber = Math.max(0, Number(row.lap_number) || 0);
       const driverNumber = row.driver_number;
-
-      const fuel = estimateFuel({ driverNumber, lapNumber });
-
-      // Clamp/normalize tyre age and provide fallback compound+age when OpenF1 stints aren't available.
-      let tyreAge = Number(row.tyre_age);
-      if (!Number.isFinite(tyreAge)) tyreAge = null;
-      if (tyreAge !== null) tyreAge = Math.max(0, Math.floor(tyreAge));
-
       let tyreCompound = row.tyre_compound;
-      let stintNumber = row.stint_number;
-      let currentStintLaps = null;
-
-      if (row.stint_lap_start !== null && row.stint_lap_start !== undefined) {
-        const lapStart = Math.max(0, Number(row.stint_lap_start) || 0);
-        currentStintLaps = Math.max(0, lapNumber - lapStart + 1);
-      }
 
       if (!tyreCompound) {
-        const sim = simulateTyreFallback({ driverNumber, lapNumber });
-        tyreCompound = sim.compound;
-        tyreAge = sim.tyreAge;
-        stintNumber = sim.stintNumber;
-        currentStintLaps = tyreAge + 1;
+        tyreCompound = simulateCompoundFallback(driverNumber);
       }
 
       return {
         ...row,
         tyre_compound: tyreCompound,
-        tyre_age: tyreAge,
-        stint_number: stintNumber,
-        current_stint_laps: currentStintLaps,
-        ...fuel,
       };
     });
 
@@ -381,6 +426,11 @@ app.get("/api/session", async (req, res) => {
 // GET /api/schedule — upcoming F1 race calendar (auto from OpenF1, fallback to static)
 app.get("/api/schedule", async (req, res) => {
   try {
+    const nowMs = Date.now();
+    if (cachedSchedule.length > 0 && nowMs - lastScheduleFetchAt < 6 * 60 * 60 * 1000) {
+      return res.json(cachedSchedule);
+    }
+
     const now = new Date();
     const currentYear = now.getUTCFullYear();
 
@@ -416,7 +466,9 @@ app.get("/api/schedule", async (req, res) => {
 
     if (fromOpenF1.length > 0) {
       const upcoming = fromOpenF1.filter((r) => new Date(r.date_end || r.date_start || r.date) >= now);
-      return res.json(upcoming.length > 0 ? upcoming : fromOpenF1);
+      cachedSchedule = upcoming.length > 0 ? upcoming : fromOpenF1;
+      lastScheduleFetchAt = nowMs;
+      return res.json(cachedSchedule);
     }
 
     // Fallback: static schedule (legacy)
@@ -448,7 +500,11 @@ app.get("/api/schedule", async (req, res) => {
     ];
 
     const upcoming = schedule.filter((r) => new Date(r.date) >= now);
-    res.json(upcoming.length > 0 ? upcoming : schedule);
+    // If the whole fallback calendar is in the past (e.g. we're in 2026 with a 2025 schedule),
+    // return an empty list so the frontend hides the banner instead of showing a wrong race.
+    cachedSchedule = upcoming;
+    lastScheduleFetchAt = nowMs;
+    res.json(cachedSchedule);
   } catch (err) {
     console.error("❌ /api/schedule error:", err.message);
     res.status(500).json({ error: "Failed to fetch schedule" });
@@ -472,12 +528,20 @@ async function start() {
   setInterval(fetchAndStoreData, POLL_INTERVAL);
   console.log(`⏱️  Polling OpenF1 every ${POLL_INTERVAL / 1000}s`);
 
-  app.listen(PORT, () => {
+  const server = app.listen(PORT, () => {
     console.log(`\n🏁 F1 Live Tracker backend running at http://localhost:${PORT}`);
     console.log(`   📡 Positions API: http://localhost:${PORT}/api/positions`);
     console.log(`   📋 Session API:   http://localhost:${PORT}/api/session`);
     console.log(`   📅 Schedule API:  http://localhost:${PORT}/api/schedule`);
     console.log(`   ❤️  Health check:  http://localhost:${PORT}/api/health\n`);
+  });
+
+  server.on("error", (err) => {
+    if (err && err.code === "EADDRINUSE") {
+      console.error(`\n❌ Port ${PORT} is already in use.`);
+      console.error("   Close the other backend process, or change PORT in backend/.env.");
+      process.exit(1);
+    }
   });
 }
 

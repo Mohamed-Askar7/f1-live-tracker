@@ -159,62 +159,6 @@
     font-variant-numeric: tabular-nums;
 }
 
-/* ── Telemetry Panel ────────────────────────────────────────── */
-.telemetry-panel {
-    display: flex;
-    gap: .75rem;
-    flex-wrap: wrap;
-    margin-bottom: 1rem;
-}
-
-.telemetry-card {
-    flex: 1 1 220px;
-    min-width: 200px;
-    background: rgba(18, 18, 26, .72);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: .75rem .9rem;
-    backdrop-filter: blur(8px);
-}
-
-.telemetry-card__label {
-    font-size: .72rem;
-    text-transform: uppercase;
-    letter-spacing: .1em;
-    color: var(--text-muted);
-    font-weight: 700;
-    margin-bottom: .3rem;
-}
-
-.telemetry-card__value {
-    display: flex;
-    align-items: baseline;
-    gap: .6rem;
-    font-size: 1.05rem;
-    font-weight: 800;
-    color: var(--text-primary);
-    font-variant-numeric: tabular-nums;
-}
-
-.telemetry-card__value--tyre {
-    align-items: center;
-}
-
-.telemetry-card__sub {
-    font-size: .82rem;
-    font-weight: 700;
-    color: var(--text-secondary);
-}
-
-.telemetry-tyre-text {
-    font-size: .88rem;
-    font-weight: 700;
-    color: var(--text-secondary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
 /* ── Table ──────────────────────────────────────────────────── */
 .standings-table {
     width: 100%;
@@ -238,7 +182,12 @@
 }
 
 .standings-table thead th:nth-child(4) {
-    width: 170px;
+    width: 130px;
+}
+
+.standings-table thead th:nth-child(5),
+.standings-table thead th:nth-child(6) {
+    width: 110px;
 }
 
 /* ── Driver Row ─────────────────────────────────────────────── */
@@ -358,11 +307,40 @@
     flex-shrink: 0;
 }
 
-/* ── Lap Cell ───────────────────────────────────────────────── */
-.lap-number {
+.championship-points {
     font-variant-numeric: tabular-nums;
+    font-size: .9rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+/* ── Lap Timing Cell ───────────────────────────────────────── */
+.lap-time-cell {
+    display: flex;
+    flex-direction: column;
+    gap: .15rem;
+}
+
+.lap-time {
+    font-family: 'Outfit', monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: .88rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    letter-spacing: .01em;
+}
+
+.lap-time--best {
+    color: #bb86fc;
+    font-weight: 700;
+    text-shadow: 0 0 8px rgba(187, 134, 252, .25);
+}
+
+.lap-time__lap-num {
+    font-size: .68rem;
+    color: var(--text-muted);
     font-weight: 500;
-    color: var(--text-secondary);
+    letter-spacing: .04em;
 }
 
 /* ── Tyre Cell ──────────────────────────────────────────────── */
@@ -568,11 +546,6 @@
         text-overflow: unset;
     }
 
-    .telemetry-tyre-text {
-        white-space: normal;
-        overflow: visible;
-        text-overflow: unset;
-    }
 }
 
 /* ── Row enter animation ────────────────────────────────────── */

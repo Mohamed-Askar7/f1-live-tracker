@@ -7,7 +7,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import "./App.css";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000/api";
-const REFRESH_INTERVAL = 5; // seconds
+const REFRESH_INTERVAL = 30; // seconds
 
 function normalizeCompound(compound) {
     const c = String(compound || "").trim().toUpperCase();
@@ -21,17 +21,23 @@ function normalizeCompound(compound) {
     return { label: c.charAt(0) + c.slice(1).toLowerCase(), short: c.slice(0, 1), className: "tyre-unknown" };
 }
 
-function formatTyreAge(value) {
-    const n = Number(value);
-    if (!Number.isFinite(n)) return null;
-    return Math.max(0, Math.floor(n));
-}
-
 function formatRaceDate(dateStr) {
     if (!dateStr) return "—";
     const d = new Date(dateStr);
     if (!Number.isFinite(d.getTime())) return dateStr;
     return d.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+}
+
+function formatLapTime(seconds) {
+    if (seconds == null || seconds === "" || !Number.isFinite(Number(seconds))) return "—";
+    const total = Number(seconds);
+    if (total <= 0) return "—";
+    const mins = Math.floor(total / 60);
+    const secs = (total % 60).toFixed(3);
+    if (mins > 0) {
+        return `${mins}:${secs.padStart(6, "0")}`;
+    }
+    return secs;
 }
 
 function App() {
@@ -200,50 +206,6 @@ function App() {
                 </div>
             </div>
 
-            {/* Telemetry Cards (leader) */}
-            {drivers.length > 0 && (() => {
-                const leader = drivers[0];
-                const leaderTyre = normalizeCompound(leader.tyre_compound);
-                const leaderTyreAge = formatTyreAge(leader.tyre_age);
-                const fuelKg = Number(leader.fuel_remaining_kg);
-                const fuelPct = Number(leader.fuel_percentage);
-                const stintNo = leader.stint_number ?? "—";
-                const stintLaps = Number(leader.current_stint_laps);
-                return (
-                    <section className="telemetry-panel" aria-label="Telemetry">
-                        <div className="telemetry-card">
-                            <div className="telemetry-card__label">Fuel remaining</div>
-                            <div className="telemetry-card__value">
-                                {Number.isFinite(fuelKg) ? `${fuelKg.toFixed(1)} kg` : "—"}
-                                {Number.isFinite(fuelPct) ? <span className="telemetry-card__sub">{fuelPct}%</span> : null}
-                            </div>
-                        </div>
-
-                        <div className="telemetry-card">
-                            <div className="telemetry-card__label">Current stint</div>
-                            <div className="telemetry-card__value">
-                                {stintNo}
-                                {Number.isFinite(stintLaps) ? <span className="telemetry-card__sub">{stintLaps} laps</span> : null}
-                            </div>
-                        </div>
-
-                        <div className="telemetry-card">
-                            <div className="telemetry-card__label">Tyre age</div>
-                            <div className="telemetry-card__value telemetry-card__value--tyre">
-                                <span className={`tyre-badge ${leaderTyre.className}`} title={leaderTyre.label}>
-                                    {leaderTyre.short}
-                                </span>
-                                <span className="telemetry-tyre-text">
-                                    {leaderTyreAge === null || leaderTyre.label === "Unknown"
-                                        ? "—"
-                                        : `${leaderTyre.label} – ${leaderTyreAge} laps`}
-                                </span>
-                            </div>
-                        </div>
-                    </section>
-                );
-            })()}
-
             {/* Standings Table */}
             {drivers.length === 0 ? (
                 <div className="state-screen">
@@ -262,13 +224,14 @@ function App() {
                             <th>TEAM</th>
                             <th>TYRE</th>
                             <th>LAP</th>
+                            <th>BEST</th>
+                            <th>PTS</th>
                         </tr>
                     </thead>
                     <tbody>
                         {drivers.map((d, i) => {
                             const teamColor = d.team_colour ? `#${d.team_colour}` : "#e10600";
                             const tyre = normalizeCompound(d.tyre_compound);
-                            const tyreAge = formatTyreAge(d.tyre_age);
                             return (
                                 <tr
                                     key={d.driver_number}
@@ -324,17 +287,36 @@ function App() {
                                             <span className={`tyre-badge ${tyre.className}`} title={tyre.label}>
                                                 {tyre.short}
                                             </span>
-                                            <span className="tyre-text">
-                                                {tyreAge === null || tyre.label === "Unknown"
-                                                    ? "—"
-                                                    : `${tyre.label} – ${tyreAge} laps old`}
-                                            </span>
+                                            <span className="tyre-text">{tyre.label}</span>
                                         </div>
                                     </td>
 
-                                    {/* Lap */}
+                                    {/* Last Lap Time */}
                                     <td data-label="Lap">
-                                        <span className="lap-number">{d.lap_number || "—"}</span>
+                                        <div className="lap-time-cell">
+                                            <span className="lap-time">
+                                                {formatLapTime(d.last_lap_duration)}
+                                            </span>
+                                            {d.lap_number > 0 && (
+                                                <span className="lap-time__lap-num">L{d.lap_number}</span>
+                                            )}
+                                        </div>
+                                    </td>
+
+                                    {/* Best Lap Time */}
+                                    <td data-label="Best">
+                                        <span className="lap-time lap-time--best">
+                                            {formatLapTime(d.best_lap_duration)}
+                                        </span>
+                                    </td>
+
+                                    {/* Championship points */}
+                                    <td data-label="Points">
+                                        <span className="championship-points">
+                                            {d.championship_points != null
+                                                ? Number(d.championship_points).toFixed(0)
+                                                : "—"}
+                                        </span>
                                     </td>
                                 </tr>
                             );

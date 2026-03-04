@@ -7,7 +7,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import "./App.css";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000/api";
-const REFRESH_INTERVAL = 30; // seconds
+const REFRESH_INTERVAL = 60; // seconds
 
 function normalizeCompound(compound) {
     const c = String(compound || "").trim().toUpperCase();
